@@ -19,7 +19,7 @@
 #include <libnsfb_event.h>
 #include <libnsfb_plot.h>
 
-#define SURFACE_TYPE NSFB_SURFACE_X /* Default surface type */
+#define SURFACE_TYPE NSFB_SURFACE_SDL /* Default surface type */
 #define BACKGROUND_COLOUR 0xFF000000 /* Black (ABGR) */
 #define ERROR_COLOUR 0xFF0000FF /* Bright red (ABGR) */
 #define PAGE_MULT 0.5 /* Fraction of page to move for a PageUp or PageDown */
@@ -34,7 +34,8 @@ typedef struct {
     int width;
     int height;
 
-    /* Display buffer and stride */
+    /* Display format, buffer and stride */
+    enum nsfb_format_e format;
     uint8_t* buf;
     int stride;
 
@@ -69,32 +70,16 @@ void initialise_display(char* name, display_t *d) {
     d->offset = 0;
 
     d->nsfb = nsfb_new(SURFACE_TYPE);
-    if (d->nsfb == NULL) {
+    if (d->nsfb == NULL || nsfb_init(d->nsfb) != 0) {
         fprintf(stderr, "%s: failed to initialise libnsfb\n", name);
         exit(EXIT_FAILURE);
     }
 
-    if (nsfb_set_geometry(d->nsfb, 0, 0, NSFB_FMT_RGB888) != 0) {
-        fprintf(stderr, "%s: failed to set window bpp\n", name);
-        exit(EXIT_FAILURE);
-    }
-
-    if (nsfb_init(d->nsfb) != 0) {
-        fprintf(stderr, "%s: failed to initialise libnsfb\n", name);
-        exit(EXIT_FAILURE);
-    }
-
-    enum nsfb_format_e fmt;
-    if (nsfb_get_geometry(d->nsfb, &d->width, &d->height, &fmt) != 0) {
+    if (nsfb_get_geometry(d->nsfb, &d->width, &d->height, &d->format) != 0) {
         fprintf(stderr, "%s: failed to get window geometry\n", name);
         exit(EXIT_FAILURE);
     }
-    if (fmt != NSFB_FMT_RGB888) {
-        fprintf(stderr, "%s: window bpp is not 24\n", name);
-        exit(EXIT_FAILURE);
-    }
-
-    if (nsfb_get_buffer(d->nsfb, &(d->buf), &(d->stride)) != 0) {
+    if (nsfb_get_buffer(d->nsfb, &d->buf, &d->stride) != 0) {
         fprintf(stderr, "%s: failed to get window buffer\n", name);
         exit(EXIT_FAILURE);
     }
@@ -106,11 +91,16 @@ void resize_display(char* name, display_t *d, int width, int height) {
      * This (may) call exit on failure.
      */
 
-    d->width = width;
-    d->height = height;
-    if (nsfb_set_geometry(d->nsfb, width, height, NSFB_FMT_RGB888) != 0) {
+    if (nsfb_set_geometry(d->nsfb, width, height, NSFB_FMT_ANY) != 0) {
         fprintf(stderr, "%s: failed to resize window region\n", name);
-    } else if (nsfb_get_buffer(d->nsfb, &(d->buf), &(d->stride)) != 0) {
+        return;
+    }
+
+    if (nsfb_get_geometry(d->nsfb, &d->width, &d->height, &d->format) != 0) {
+        fprintf(stderr, "%s: failed to get window geometry\n", name);
+        exit(EXIT_FAILURE);
+    }
+    if (nsfb_get_buffer(d->nsfb, &d->buf, &d->stride) != 0) {
         fprintf(stderr, "%s: failed to get window buffer\n", name);
         exit(EXIT_FAILURE);
     }
@@ -224,10 +214,30 @@ bool render_image(char* name, display_t *d, content_t *content,
             if (y < height &&
                     display_x >= 0 && display_x < d->width &&
                     display_y >= 0 && display_y < d->height) {
-                int buf_offset = display_x * 4 + display_y * d->stride;
-                d->buf[buf_offset + 2] = content->readbuf[8*i + 0]; /* Blue */
-                d->buf[buf_offset + 1] = content->readbuf[8*i + 2]; /* Green */
-                d->buf[buf_offset + 0] = content->readbuf[8*i + 4]; /* Red */
+                unsigned char blue = content->readbuf[8*i + 0];
+                unsigned char green = content->readbuf[8*i + 2];
+                unsigned char red = content->readbuf[8*i + 4];
+
+                if (d->format == NSFB_FMT_RGB888) {
+                    int buf_offset = display_x * 4 + display_y * d->stride;
+                    d->buf[buf_offset + 0] = red;
+                    d->buf[buf_offset + 1] = green;
+                    d->buf[buf_offset + 2] = blue;
+                }
+                if (d->format == NSFB_FMT_ARGB8888 ||
+                    d->format == NSFB_FMT_XRGB8888) {
+                    int buf_offset = display_x * 4 + display_y * d->stride;
+                    d->buf[buf_offset + 0] = red;
+                    d->buf[buf_offset + 1] = green;
+                    d->buf[buf_offset + 2] = blue;
+                }
+                if (d->format == NSFB_FMT_ABGR8888 ||
+                    d->format == NSFB_FMT_XBGR8888) {
+                    int buf_offset = display_x * 4 + display_y * d->stride;
+                    d->buf[buf_offset + 0] = blue;
+                    d->buf[buf_offset + 1] = green;
+                    d->buf[buf_offset + 2] = red;
+                }
             }
 
             x++;
