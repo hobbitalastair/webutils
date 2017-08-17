@@ -46,7 +46,7 @@ bool download_image(Page* p, hubbub_string url) {
     printf("%.*s, %d\n", (int)url.len, url.ptr, p->count);
 
     /* Open the file to write to */
-    snprintf(path, PATH_MAX + 1, "%s/%d.jpg", p->path, p->count);
+    snprintf(path, PATH_MAX + 1, "%s/%03d.jpg", p->path, p->count);
     path[PATH_MAX] = '\0';
     file = fopen(path, "w+");
     if (file == NULL) {
