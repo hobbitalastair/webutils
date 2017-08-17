@@ -1,11 +1,11 @@
-LIBS = -lcurl -lhubbub
+LIBS = -lcurl -lhubbub `pkg-config --libs libnsfb`
 CC = gcc
 CFLAGS = -Wall -Werror -O2 -g
-OBJS = webtoon
+OBJS = webtoon webtoon-viewer
 
 all: $(OBJS)
 
-webtoon: webtoon.c
+%: %.c
 	$(CC) -o $@ $< $(LIBS) $(CFLAGS)
 
 clean:
