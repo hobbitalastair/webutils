@@ -28,7 +28,7 @@
 
 typedef struct {
     /* Current vertical (scrolled) offset */
-    int offset;
+    int offset_y;
 
     /* Visible display width and height */
     int width;
@@ -67,7 +67,7 @@ void initialise_display(char* name, display_t *d) {
      * This exits on failure.
      */
 
-    d->offset = 0;
+    d->offset_y = 0;
 
     d->nsfb = nsfb_new(SURFACE_TYPE);
     if (d->nsfb == NULL || nsfb_init(d->nsfb) != 0) {
@@ -283,9 +283,9 @@ void render(char* name, display_t *d, content_t *content) {
     /* Display the images */
     int start_height = 0;
     for (int i = 0; i < content->image_count; i++) {
-        if (start_height + content->heights[i] >= d->offset &&
-                start_height < d->offset + d->height) {
-            if (!render_image(name, d, content, i, start_height - d->offset)) {
+        if (start_height + content->heights[i] >= d->offset_y &&
+                start_height < d->offset_y + d->height) {
+            if (!render_image(name, d, content, i, start_height - d->offset_y)) {
                 /* If we can't render, then fallback and just fill with the
                  * error colour.
                  */
@@ -294,8 +294,8 @@ void render(char* name, display_t *d, content_t *content) {
                     content->heights[i] = 500;
                 }
                 nsfb_bbox_t rect = {
-                    0, start_height - d->offset,
-                    d->width, start_height - d->offset + content->heights[i],
+                    0, start_height - d->offset_y,
+                    d->width, start_height - d->offset_y + content->heights[i],
                 };
                 if (!nsfb_plot_rectangle_fill(d->nsfb, &rect, ERROR_COLOUR)) {
                     fprintf(stderr, "%s: fallback plot failed\n", name);
@@ -312,8 +312,8 @@ void render(char* name, display_t *d, content_t *content) {
      *
      * TODO: What is the effect of this on performance??
      */
-    if (d->offset + d->height > start_height) {
-        d->offset = start_height - d->height;
+    if (d->offset_y + d->height > start_height) {
+        d->offset_y = start_height - d->height;
         render(name, d, content);
     }
 
@@ -352,12 +352,12 @@ int main(int argc, char** argv) {
                 if (code == NSFB_KEY_q) exit(0);
 
                 if (code == NSFB_KEY_PAGEDOWN) {
-                    d.offset += d.height * PAGE_MULT;
+                    d.offset_y += d.height * PAGE_MULT;
                     render(name, &d, &content);
                 }
                 if (code == NSFB_KEY_PAGEUP) {
-                    d.offset -= d.height * PAGE_MULT;
-                    if (d.offset < 0) d.offset = 0;
+                    d.offset_y -= d.height * PAGE_MULT;
+                    if (d.offset_y < 0) d.offset_y = 0;
                     render(name, &d, &content);
                 }
             } else if (event.type == NSFB_EVENT_RESIZE) {
