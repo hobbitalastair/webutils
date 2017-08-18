@@ -25,12 +25,16 @@
 #define PAGE_MULT 0.7 /* Fraction of page to move for a PageUp or PageDown */
 #define ARROW_MULT 0.1 /* Fraction of page to move for arrow keys */
 #define READ_BUF_SIZE 4096 /* Read buffer size (pipe buffer, so <= 4K) */
+#define FALLBACK_HEIGHT 200 /* Height for images which failed to load */
 
 
 typedef struct {
     /* Current (scrolled) offsets */
     int offset_y;
     int offset_x;
+
+    /* Current image scaling factor */
+    int scale_factor;
 
     /* Visible display width and height */
     int width;
@@ -71,6 +75,8 @@ void initialise_display(char* name, display_t *d) {
      */
 
     d->offset_y = 0;
+    d->offset_x = 0;
+    d->scale_factor = 1;
 
     d->nsfb = nsfb_new(SURFACE_TYPE);
     if (d->nsfb == NULL || nsfb_init(d->nsfb) != 0) {
@@ -206,8 +212,8 @@ bool render_image(char* name, display_t *d, content_t *content,
         count = read(pipes[0], &content->readbuf, sizeof(content->readbuf));
         for (int i = 0; i < (count / 8); i++) {
             /* Current x, y positions on the display */
-            int display_y = y + offset;
-            int display_x = x - d->offset_x;
+            int display_y = (y / d->scale_factor) + offset;
+            int display_x = (x / d->scale_factor) - d->offset_x;
 
             /* Plot the actual point.
              *
@@ -274,7 +280,7 @@ bool render_image(char* name, display_t *d, content_t *content,
 }
 
 
-void render(char* name, display_t *d, content_t *content) {
+void render(char* name, display_t *d, content_t *c) {
     /* Render the visible screen content */
 
     // FIXME: Don't redraw the entire window.
@@ -289,27 +295,28 @@ void render(char* name, display_t *d, content_t *content) {
 
     /* Display the images */
     int start_height = 0;
-    for (int i = 0; i < content->image_count; i++) {
-        if (start_height + content->heights[i] >= d->offset_y &&
+    for (int i = 0; i < c->image_count; i++) {
+        if (start_height + (c->heights[i] / d->scale_factor) >= d->offset_y &&
                 start_height - d->height < d->offset_y) {
-            if (!render_image(name, d, content, i, start_height - d->offset_y)) {
+            if (!render_image(name, d, c, i, start_height - d->offset_y)) {
                 /* If we can't render, then fallback and just fill with the
                  * error colour.
                  */
-                if (content->heights[i] == 0) {
+                if (c->heights[i] == 0) {
                     /* Use a placeholder height */
-                    content->heights[i] = 500;
+                    c->heights[i] = FALLBACK_HEIGHT;
                 }
                 nsfb_bbox_t rect = {
                     0, start_height - d->offset_y,
-                    d->width, start_height - d->offset_y + content->heights[i],
+                    d->width, start_height - d->offset_y + 
+                              (c->heights[i] / d->scale_factor),
                 };
                 if (!nsfb_plot_rectangle_fill(d->nsfb, &rect, ERROR_COLOUR)) {
                     fprintf(stderr, "%s: fallback plot failed\n", name);
                 }
             }
         }
-        start_height += content->heights[i];
+        start_height += c->heights[i] / d->scale_factor;
     }
 
     /* If our offset is too large, clamp it and re-render; we shouldn't
@@ -321,11 +328,11 @@ void render(char* name, display_t *d, content_t *content) {
      */
     if (d->offset_y > start_height - d->height) {
         d->offset_y = start_height - d->height;
-        render(name, d, content);
+        render(name, d, c);
     }
-    if (d->offset_x > content->max_width - d->width) {
-        d->offset_x = content->max_width - d->width;
-        render(name, d, content);
+    if (d->offset_x > (c->max_width / d->scale_factor) - d->width) {
+        d->offset_x = (c->max_width / d->scale_factor) - d->width;
+        render(name, d, c);
     }
 
     if (nsfb_update(d->nsfb, &display_box) != 0) {
@@ -393,6 +400,15 @@ int main(int argc, char** argv) {
 
                 if (code == NSFB_KEY_HOME) {
                     d.offset_y = 0;
+                    render(name, &d, &content);
+                }
+
+                if (code == NSFB_KEY_EQUALS || code == NSFB_KEY_KP_PLUS) {
+                    if (d.scale_factor > 1) d.scale_factor -= 1;
+                    render(name, &d, &content);
+                }
+                if (code == NSFB_KEY_MINUS) {
+                    d.scale_factor += 1;
                     render(name, &d, &content);
                 }
             } else if (event.type == NSFB_EVENT_RESIZE) {
