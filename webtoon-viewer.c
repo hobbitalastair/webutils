@@ -22,13 +22,15 @@
 #define SURFACE_TYPE NSFB_SURFACE_SDL /* Default surface type */
 #define BACKGROUND_COLOUR 0xFF000000 /* Black (ABGR) */
 #define ERROR_COLOUR 0xFF0000FF /* Bright red (ABGR) */
-#define PAGE_MULT 0.5 /* Fraction of page to move for a PageUp or PageDown */
+#define PAGE_MULT 0.7 /* Fraction of page to move for a PageUp or PageDown */
+#define ARROW_MULT 0.1 /* Fraction of page to move for arrow keys */
 #define READ_BUF_SIZE 4096 /* Read buffer size (pipe buffer, so <= 4K) */
 
 
 typedef struct {
-    /* Current vertical (scrolled) offset */
+    /* Current (scrolled) offsets */
     int offset_y;
+    int offset_x;
 
     /* Visible display width and height */
     int width;
@@ -49,7 +51,7 @@ typedef struct {
     char* helper; /* Helper loader program */
     int image_count; /* Number of images in the array */
     char** images; /* Array of image handles to pass to the helper */
-    unsigned int* heights; /* An array of image heights */
+    int* heights; /* An array of image heights */
 
     /* We keep a global read buffer.
      *
@@ -199,8 +201,8 @@ bool render_image(char* name, display_t *d, content_t *content,
         count = read(pipes[0], &content->readbuf, sizeof(content->readbuf));
         for (int i = 0; i < (count / 8); i++) {
             /* Current x, y positions on the display */
-            int display_y = offset + y;
-            int display_x = x;
+            int display_y = y + offset;
+            int display_x = x - d->offset_x;
 
             /* Plot the actual point.
              *
@@ -284,7 +286,7 @@ void render(char* name, display_t *d, content_t *content) {
     int start_height = 0;
     for (int i = 0; i < content->image_count; i++) {
         if (start_height + content->heights[i] >= d->offset_y &&
-                start_height < d->offset_y + d->height) {
+                start_height - d->height < d->offset_y) {
             if (!render_image(name, d, content, i, start_height - d->offset_y)) {
                 /* If we can't render, then fallback and just fill with the
                  * error colour.
@@ -312,7 +314,7 @@ void render(char* name, display_t *d, content_t *content) {
      *
      * TODO: What is the effect of this on performance??
      */
-    if (d->offset_y + d->height > start_height) {
+    if (d->offset_y > start_height - d->height) {
         d->offset_y = start_height - d->height;
         render(name, d, content);
     }
@@ -330,7 +332,6 @@ int main(int argc, char** argv) {
         fprintf(stderr, "usage: %s <helper> <ids> ...\n", name);
         exit(EINVAL);
     }
-
 
     content_t content;
     initialise_content(name, &content, argv[1], argc - 2, &(argv[2]));
@@ -358,6 +359,31 @@ int main(int argc, char** argv) {
                 if (code == NSFB_KEY_PAGEUP) {
                     d.offset_y -= d.height * PAGE_MULT;
                     if (d.offset_y < 0) d.offset_y = 0;
+                    render(name, &d, &content);
+                }
+
+                if (code == NSFB_KEY_DOWN) {
+                    d.offset_y += d.height * ARROW_MULT;
+                    render(name, &d, &content);
+                }
+                if (code == NSFB_KEY_UP) {
+                    d.offset_y -= d.height * ARROW_MULT;
+                    if (d.offset_y < 0) d.offset_y = 0;
+                    render(name, &d, &content);
+                }
+
+                if (code == NSFB_KEY_RIGHT) {
+                    d.offset_x += d.width * ARROW_MULT;
+                    render(name, &d, &content);
+                }
+                if (code == NSFB_KEY_LEFT) {
+                    d.offset_x -= d.width * ARROW_MULT;
+                    if (d.offset_x < 0) d.offset_x = 0;
+                    render(name, &d, &content);
+                }
+
+                if (code == NSFB_KEY_HOME) {
+                    d.offset_y = 0;
                     render(name, &d, &content);
                 }
             } else if (event.type == NSFB_EVENT_RESIZE) {
