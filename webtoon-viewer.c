@@ -326,12 +326,20 @@ void render(char* name, display_t *d, content_t *c) {
      *
      * TODO: What is the effect of this on performance??
      */
-    if (d->offset_y > start_height - d->height) {
-        d->offset_y = start_height - d->height;
+    int max_offset_y = start_height - d->height;
+    if (max_offset_y < 0) max_offset_y = 0;
+    if (d->offset_y > max_offset_y) {
+        d->offset_y = max_offset_y;
         render(name, d, c);
     }
-    if (d->offset_x > (c->max_width / d->scale_factor) - d->width) {
-        d->offset_x = (c->max_width / d->scale_factor) - d->width;
+    /* We don't know the maximum width, but we do know the maximum width found
+     * so far, which includes the current width. We can use this to clamp to
+     * visible width.
+     */
+    int max_offset_x = (c->max_width / d->scale_factor) - d->width;
+    if (max_offset_x < 0) max_offset_x = 0;
+    if (d->offset_x > max_offset_x) {
+        d->offset_x = max_offset_x;
         render(name, d, c);
     }
 
