@@ -26,6 +26,7 @@
 #define ARROW_MULT 0.1 /* Fraction of page to move for arrow keys */
 #define READ_BUF_SIZE 4096 /* Read buffer size (pipe buffer, so <= 4K) */
 #define FALLBACK_HEIGHT 200 /* Height for images which failed to load */
+#define SCALE_FACTOR 0.7 /* Scale factor used for +/- scaling (<1) */
 
 
 typedef struct {
@@ -34,7 +35,7 @@ typedef struct {
     int offset_x;
 
     /* Current image scaling factor */
-    int scale_factor;
+    float scale_factor;
 
     /* Visible display width and height */
     int width;
@@ -412,11 +413,17 @@ int main(int argc, char** argv) {
                 }
 
                 if (code == NSFB_KEY_EQUALS || code == NSFB_KEY_KP_PLUS) {
-                    if (d.scale_factor > 1) d.scale_factor -= 1;
+                    d.scale_factor *= SCALE_FACTOR;
+                    if (d.scale_factor <= 1) d.scale_factor = 1;
                     render(name, &d, &content);
                 }
                 if (code == NSFB_KEY_MINUS) {
-                    d.scale_factor += 1;
+                    d.scale_factor /= SCALE_FACTOR;
+                    render(name, &d, &content);
+                }
+                if (code == NSFB_KEY_f) {
+                    d.scale_factor = (float)content.max_width / (float)d.width;
+                    if (d.scale_factor <= 1) d.scale_factor = 1;
                     render(name, &d, &content);
                 }
             } else if (event.type == NSFB_EVENT_RESIZE) {
