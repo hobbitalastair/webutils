@@ -52,6 +52,7 @@ typedef struct {
     int image_count; /* Number of images in the array */
     char** images; /* Array of image handles to pass to the helper */
     int* heights; /* An array of image heights */
+    int max_width; /* Maximum image width */
 
     /* We keep a global read buffer.
      *
@@ -124,6 +125,7 @@ void initialise_content(char* name, content_t *content,
         fprintf(stderr, "%s: calloc(): %s\n", name, strerror(errno));
         exit(EXIT_FAILURE);
     }
+    content->max_width = 0;
 }
 
 
@@ -191,8 +193,11 @@ bool render_image(char* name, display_t *d, content_t *content,
     }
     uint32_t width = ntohl(header[2]);
     uint32_t height = ntohl(header[3]);
-    /* We need to save the height when we find it, so do that here */
+    /* We need to save the height and width when we find it, so do that here */
     content->heights[img] = height;
+    if (content->max_width < width) {
+        content->max_width = width;
+    }
 
     int x = 0; /* Current x position in the image */
     int y = 0; /* Current y position in the image */
@@ -316,6 +321,10 @@ void render(char* name, display_t *d, content_t *content) {
      */
     if (d->offset_y > start_height - d->height) {
         d->offset_y = start_height - d->height;
+        render(name, d, content);
+    }
+    if (d->offset_x > content->max_width - d->width) {
+        d->offset_x = content->max_width - d->width;
         render(name, d, content);
     }
 
