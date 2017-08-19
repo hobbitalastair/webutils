@@ -1,4 +1,4 @@
-/* webtoon.c
+/* webtoon-scrape.c
  *
  * Experimental www.webtoons.com scraper/downloader.
  *
@@ -190,7 +190,7 @@ bool download_page(char* url, char* path) {
 
 void usage(char* name) {
     if (name == NULL) {
-        name = "webtoon";
+        name = "webtoon-scrape";
     }
     fprintf(stderr, "usage: %s <url> [<path>]\n", name);
 }
