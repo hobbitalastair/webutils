@@ -11,6 +11,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
@@ -27,6 +30,7 @@
 #define READ_BUF_SIZE 4096 /* Read buffer size (pipe buffer, so <= 4K) */
 #define FALLBACK_HEIGHT 200 /* Height for images which failed to load */
 #define SCALE_FACTOR 0.7 /* Scale factor used for +/- scaling (<1) */
+#define TO_FARBFELD "/usr/bin/2ff" /* Helper program to convert to farbfeld */
 
 
 typedef struct {
@@ -53,9 +57,8 @@ typedef struct {
 typedef struct {
     /* Information needed for rendering the images onto the display */
 
-    char* helper; /* Helper loader program */
     int image_count; /* Number of images in the array */
-    char** images; /* Array of image handles to pass to the helper */
+    char** images; /* Array of image files to open */
     int* heights; /* An array of image heights */
     int max_width; /* Maximum image width */
 
@@ -117,13 +120,12 @@ void resize_display(char* name, display_t *d, int width, int height) {
 }
 
 void initialise_content(char* name, content_t *content,
-        char* helper, int image_count, char** images) {
+        int image_count, char** images) {
     /* Initialise the given content struct.
      *
      * This exits on failure.
      */
 
-    content->helper = helper;
     content->image_count = image_count;
     content->images = images;
 
@@ -175,13 +177,29 @@ bool render_image(char* name, display_t *d, content_t *content,
         return false;
     } else if (child == 0) {
         /* Redirect stdout to the pipe */
-        dup2(pipes[1], 1);
+        if (dup2(pipes[1], 1) == -1) {
+            fprintf(stderr, "%s: dup2(): %s\n", name, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
         close(pipes[0]);
         close(pipes[1]);
 
-        execl(content->helper, content->helper, content->images[img], NULL);
-        fprintf(stderr, "%s: execl(%s): %s\n", name,
-            content->helper, strerror(errno));
+        /* Open the file and pass it to the child as stdin */
+        int input = open(content->images[img], 0);
+        if (input == -1) {
+            fprintf(stderr, "%s: open(%s): %s\n", name, content->images[img],
+                    strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(input, 0) == -1) {
+            fprintf(stderr, "%s: dup2(): %s\n", name, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        close(input);
+
+        execl(TO_FARBFELD, TO_FARBFELD, NULL);
+        fprintf(stderr, "%s: execl(%s): %s\n", name, TO_FARBFELD,
+                strerror(errno));
         exit(EXIT_FAILURE);
     } else {
         close(pipes[1]);
@@ -354,12 +372,12 @@ int main(int argc, char** argv) {
     char* name = __FILE__;
     if (argc > 0) name = argv[0];
     if (argc < 3) {
-        fprintf(stderr, "usage: %s <helper> <ids> ...\n", name);
+        fprintf(stderr, "usage: %s <ids> ...\n", name);
         exit(EINVAL);
     }
 
     content_t content;
-    initialise_content(name, &content, argv[1], argc - 2, &(argv[2]));
+    initialise_content(name, &content, argc - 1, &(argv[1]));
 
     display_t d;
     initialise_display(name, &d);
