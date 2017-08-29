@@ -371,7 +371,7 @@ void render(char* name, display_t *d, content_t *c) {
 int main(int argc, char** argv) {
     char* name = __FILE__;
     if (argc > 0) name = argv[0];
-    if (argc < 3) {
+    if (argc < 2) {
         fprintf(stderr, "usage: %s <ids> ...\n", name);
         exit(EINVAL);
     }
