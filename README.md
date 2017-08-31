@@ -1,4 +1,9 @@
-# webtoon #
+# webutils
 
-Experimental [webtoon](www.webtoons.com/en/) scraper/downloader.
+Scrapers, viewers, and helpers for various websites I use.
+
+Dependencies:
+
+- libhubbub - Netsurf's HTML5 library.
+- libnsfb - Netsurf's framebuffer abstraction library.
 
