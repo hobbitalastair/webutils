@@ -1,6 +1,6 @@
-/* webtoon-viewer.c
+/* comic-viewer.c
  *
- * Experimental low-memory www.webtoons.com viewer.
+ * Experimental low-memory comic viewer.
  *
  * Author:  Alastair Hughes
  * Contact: hobbitalastair at yandex dot com

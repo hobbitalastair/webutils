@@ -1,7 +1,7 @@
 LIBS = -lcurl -lhubbub `pkg-config --libs libnsfb`
 CC = gcc
 CFLAGS = -Wall -Werror -O2 -g
-OBJS = webtoon-scrape webtoon-viewer tapas-scrape
+OBJS = comic-viewer webtoon-scrape tapas-scrape
 
 all: $(OBJS)
 
