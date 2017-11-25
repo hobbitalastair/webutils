@@ -3,7 +3,7 @@ BINDIR := ${PREFIX}/bin
 LIBS = -lcurl -lhubbub `pkg-config --libs libnsfb`
 CC = gcc
 CFLAGS = -Wall -Werror -O2 -g
-BIN = comic-viewer scrape-webtoon scrape-tapas
+BIN = comic-viewer html-extract links2atom scrape-webtoon scrape-tapas
 
 all: $(BIN)
 
