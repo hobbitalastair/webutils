@@ -15,9 +15,10 @@ printf '    <id>%s</id>\n' "${id}"
 printf '    <link href="%s"></link>\n' "${id}"
 printf '    <updated>%s</updated>\n' "${date}"
 
-while IFS='' read link; do
+while IFS=' ' read link title; do
+    [ -z "${title}" ] && title="${link}"
     printf '    <entry>\n'
-    printf '        <title>%s</title>\n' "${link}"
+    printf '        <title>%s</title>\n' "${title}"
     printf '        <content></content>\n'
     printf '        <id>%s</id>\n' "${link}"
     printf '        <link href="%s"></link>\n' "${link}"
