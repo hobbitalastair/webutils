@@ -55,7 +55,7 @@ bool download_image(Page* p, hubbub_string url) {
     }
 
     /* Create the url buffer */
-    url_string = malloc(url.len);
+    url_string = malloc(url.len + 1);
     if (url_string == NULL) {
         fprintf(stderr, "failed to allocate memory\n");
         return false;
